@@ -1,7 +1,6 @@
 # Refugee and Asylum Network and Generic Partner Organization — Synthetic Dataset
 
-A two-stage synthetic data generator built around a fictional social-services agency's **Refugee Status Determination (RSD)** workflow. Stage 1 populates a PostgreSQL OLTP database modelling the full RSD case lifecycle. Stage 2 consumes that database to produce a synthetic Excel webform export. The schema and business logic are inspired by domain experience with humanitarian case-management systems (anonymized), making the dataset realistic enough to drive portfolio-grade BI and Data Engineering projects, while deliberately avoiding resemblance to real individuals, cases, or operational datasets.
-
+A two-stage synthetic data generator built around a fictional social-services agency's **Refugee Status Determination (RSD)** workflow. Stage 1 populates a PostgreSQL OLTP database modelling the full RSD case lifecycle. Stage 2 consumes that database to produce a synthetic Excel webform export. The schema and business logic are inspired by domain experience with humanitarian case-management systems (anonymized), making the dataset realistic enough to drive portfolio-grade BI and Data Engineering projects, while ensuring no real individual, case, or operational record can be identified or reconstructed from it.
 ---
 
 ## Pipeline overview
