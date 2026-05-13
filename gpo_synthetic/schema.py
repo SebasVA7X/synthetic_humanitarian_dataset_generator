@@ -5,8 +5,6 @@ COLUMNS = [
     "Submission ID",
     "Submission UUID",
     "Created",
-    "Completed",
-    "Modified",
     "Form Title",
     "Identification Document",
     "Phone",

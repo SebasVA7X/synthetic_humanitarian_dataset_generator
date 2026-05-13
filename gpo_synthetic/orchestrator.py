@@ -282,8 +282,6 @@ def render_row(sub: Submission, *, doc_overlap_ratio: float) -> dict:
         "Submission ID": sub.submission_id,
         "Submission UUID": "",
         "Created": creation_str,
-        "Completed": creation_str,
-        "Modified": creation_str,
         "Form Title": FORM_TITLE,
         "Identification Document": id_doc,
         "Phone": random_phone(),
