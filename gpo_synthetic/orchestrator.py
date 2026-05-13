@@ -23,6 +23,8 @@ from typing import Iterable
 import pandas as pd
 
 from gpo_synthetic.config import GenerationConfig, PostgresConfig
+from gpo_synthetic.generators import contact as _contact_mod
+from gpo_synthetic.generators import names as _names_mod
 from gpo_synthetic.generators.contact import random_email, random_phone
 from gpo_synthetic.generators.dates import (
     format_date,
@@ -311,6 +313,8 @@ def generate_dataset(
     csv_fallback: str | None = None,
 ) -> list[dict]:
     random.seed(gen_cfg.random_seed)
+    _names_mod._fake.seed_instance(gen_cfg.random_seed)
+    _contact_mod._fake.seed_instance(gen_cfg.random_seed)
 
     print(f"[1/5] Loading match pool ({'CSV fallback' if csv_fallback else 'Postgres'})...")
     match_pool = load_match_pool(pg_cfg, csv_fallback=csv_fallback)

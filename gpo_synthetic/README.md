@@ -44,7 +44,7 @@ All parameters live in the project's top-level `.env` (template: [`env.example`]
 | `GPO_OUTPUT_PATH` | Output Excel path | `./output/gpo_synthetic_origin.xlsx` |
 | `RAN_RANDOM_SEED` | Seed for reproducibility | 42 |
 
-## Output schema (20 columns)
+## Output schema (18 columns)
 
 ```
 Submission ID, Submission UUID, Created, Form Title,
@@ -87,7 +87,4 @@ gpo_synthetic/
 
 ## Synthetic ID safety
 
-All identification numbers begin with a 2-character alphanumeric prefix that
-does not exist in real-world LATAM ID systems
-(e.g., `9X`, `P6`, `Z3`). Passport numbers use `ZZ` or `XX` prefixes. This
-guarantees no collision with a real person's identification.
+All identification numbers begin with a 2-character alphanumeric prefix that does not exist in any real-world ID system (e.g., 9X, P6, Z3) followed by a random number. Passport numbers use ZZ or XX prefixes followed by a random number. This guarantees no collision with a real person's identification.

@@ -17,8 +17,8 @@ The dataset is generated in two stages: Stage 1 populates a PostgreSQL OLTP data
 └──────────────────────┘      └────────────────────────┘      └──────────────────────┘      └──────────────────────┘
 ```
 
-- **Stage 1** builds the source-of-truth OLTP database — registration groups, individuals, admissibility assessments, eligibility assessments, recommendations, reviews, appeals, and certificates — with causally ordered timestamps and configurable volumes/distributions.
-- **Stage 2** reads `dim_individual` and emits a synthetic Excel webform file that the schema and data-quality issues of field humanitarian organizations GPO export (typos, document-overlap noise, intentional duplicates).
+- **Stage 1** builds the source-of-truth OLTP database: registration groups, individuals, admissibility assessments, eligibility assessments, recommendations, reviews, appeals, and certificates, with causally ordered timestamps and configurable volumes/distributions.
+- **Stage 2** reads `dim_individual` and emits a synthetic Excel webform file that mimics the schema and data-quality issues commonly found in field humanitarian organizations exports (typos, document-overlap noise, intentional duplicates).
 
 The two stages share a single `.env` and one root `requirements.txt`. Stage 2 is a pure consumer of Stage 1's output — the dependency runs in one direction only.
 The objective of stage 2 is to generate a parallel registration process, which is commonly found on the field. 
@@ -49,7 +49,7 @@ The objective of stage 2 is to generate a parallel registration process, which i
     ├── __main__.py              CLI entrypoint
     ├── config.py                .env loader (DB_* + RAN_*)
     ├── orchestrator.py          Drives the full generation flow
-    ├── schema.py                Canonical 20-column output schema
+    ├── schema.py                Canonical 18-column output schema
     ├── generators/              Per-field generators (names, dates, docs, etc.)
     ├── sources/                 dim_individual loader (Postgres + CSV fallback)
     └── writers/                 Excel writer
@@ -86,21 +86,21 @@ cp env.example .env
 
 `.env` variables:
 
-| Variable | Default                              | Description |
-|---|--------------------------------------|---|
-| `DB_HOST` | `localhost`                          | PostgreSQL host |
-| `DB_PORT` | `5432`                               | PostgreSQL port |
-| `DB_NAME` | `your_psql_database`                 | Database name |
-| `DB_USER` | `postgres`                           | Database user |
-| `DB_PASSWORD` | _(required)_                         | Database password — no default |
-| `RAN_SOURCE_SCHEMA` | `public`                             | Stage 2 — schema where `dim_individual` lives |
-| `RAN_SOURCE_TABLE` | `dim_individual`                     | Stage 2 — source table name |
-| `RAN_NUM_ROWS` | `1154`                               | Stage 2 — number of synthetic submissions |
-| `RAN_MATCH_RATIO` | `0.56`                               | Stage 2 — fraction sourced from `dim_individual` |
-| `RAN_DUPLICATE_RATIO` | `0.10`                               | Stage 2 — duplicate-injection rate |
-| `RAN_DOC_OVERLAP_RATIO` | `0.78`                               | Stage 2 — fraction of rows where ID and personal-doc share a number |
-| `GPO_OUTPUT_PATH` | `./output/gpo_synthetic_origin.xlsx` | Stage 2 — Excel output path |
-| `RAN_RANDOM_SEED` | `42`                                 | Stage 2 — reproducibility seed |
+| Variable | Default                              | Description                                                                                                                 |
+|---|--------------------------------------|-----------------------------------------------------------------------------------------------------------------------------|
+| `DB_HOST` | `localhost`                          | PostgreSQL host                                                                                                             |
+| `DB_PORT` | `5432`                               | PostgreSQL port                                                                                                             |
+| `DB_NAME` | `your_psql_database`                 | Database name                                                                                                               |
+| `DB_USER` | `postgres`                           | Database user                                                                                                               |
+| `DB_PASSWORD` | _(required)_                         | Database password — no default                                                                                              |
+| `RAN_SOURCE_SCHEMA` | `public`                             | Stage 2 — schema where `dim_individual` lives                                                                               |
+| `RAN_SOURCE_TABLE` | `dim_individual`                     | Stage 2 — source table name                                                                                                 |
+| `RAN_NUM_ROWS` | `1154`                               | Stage 2 — number of synthetic submissions                                                                                   |
+| `RAN_MATCH_RATIO` | `0.56`                               | Stage 2 — fraction sourced from `dim_individual`                                                                            |
+| `RAN_DUPLICATE_RATIO` | `0.10`                               | Stage 2 — duplicate-injection rate                                                                                          |
+| `RAN_DOC_OVERLAP_RATIO` | `0.78`                               | Stage 2 — fraction of rows where ID and personal-doc share a number                                                         |
+| `GPO_OUTPUT_PATH` | `./output/gpo_synthetic_origin.xlsx` | Stage 2 — Excel output path                                                                                                 |
+| `RAN_RANDOM_SEED` | `42`                                 | Stage 2 — reproducibility seed - If not changed, it will generate the same data for gpo_synthetic_origin in concurrent runs |
 
 ---
 
@@ -121,14 +121,13 @@ python reset_and_seed.py                      # drops + recreates schema + catal
 python -m gpo_synthetic                       # writes GPO_OUTPUT_PATH
 ```
 
-`reset_and_seed.py` is the recommended path for a clean run: it drops every table in the public schema, re-applies `sql/01_schema.sql` and `sql/02_catalogs.sql`, then runs the full Stage 1 pipeline in one command. If you'd rather drive each step manually, see [Stage 1 — Generate the OLTP database](#stage-1--generate-the-oltp-database) below.
+**Note**: `reset_and_seed.py` is the recommended path for a clean run: it drops every table in the public schema, re-applies `sql/01_schema.sql` and `sql/02_catalogs.sql`, then runs the full Stage 1 pipeline in one command. If you'd rather drive each step manually, see [Stage 1 — Generate the OLTP database](#stage-1--generate-the-oltp-database) below.
 
 After this, you'll have:
-- A populated `ran_system` Postgres database (~55 K rows across 12 tables).
+- A populated Postgres database (~55 K rows across 12 tables).
 - `output/gpo_synthetic_origin.xlsx` — the synthetic webform export.
 
 ---
-
 ## Stage 1 — Generate the OLTP database
 
 ### Step 1.0. (Recommended) Reset and seed in one command
@@ -174,8 +173,6 @@ Creates `dim_registration_group`, `dim_individual` (with demographics), and all 
 
 `incremental/insert_incremental.py` appends new records to an already-populated database without touching existing rows. All inserts use `ON CONFLICT DO NOTHING`, and sequential IDs (`IND-`, `ADM-`, `ELG-`) continue from the current database maximum.
 
-**Note:** This pipeline generates inconsistencies on purpose, e.g., an admitted case could have an appellation recommendation and decision. This is to reflect inconsistencies that are commonly found in the field due to migrations or incorrect data entry. 
-
 ```bash
 python -m incremental.insert_incremental                          # ~10 % of initial load (defaults)
 python -m incremental.insert_incremental --rg 500 --ind 1000      # custom registration groups + individuals
@@ -184,11 +181,14 @@ python -m incremental.insert_incremental --adm 300 --elg 200 --cert 400
 
 Available flags: `--rg`, `--ind`, `--adm`, `--adm-int`, `--adm-dec`, `--elg`, `--elg-rec`, `--elg-rev`, `--app-rec`, `--app-dec`, `--cert`.
 
----
+
+### Note on intentional inconsistencies: 
+
+#### This pipeline introduces inconsistencies on purpose (e.g., an admitted case may have an appeal recommendation and decision). This reflects real-world inconsistencies that arise from system migrations, incorrect data entry, and operational realities in humanitarian settings.
 
 ## Stage 2 — Generate the GPO origin Excel
 
-`gpo_synthetic` reads `dim_individual` (or a CSV fallback) and writes a synthetic 20-column Excel webform export. See [`gpo_synthetic/README.md`](gpo_synthetic/README.md) for the full output schema, match-tier distribution, and synthetic-ID safety rules.
+`gpo_synthetic` reads `dim_individual` (or a CSV fallback) and writes a synthetic 18-column Excel webform export. See [`gpo_synthetic/README.md`](gpo_synthetic/README.md) for the full output schema, match-tier distribution, and synthetic-ID safety rules.
 
 ### Step 2.1. Run the generator
 
@@ -208,8 +208,8 @@ All Stage 2 behaviour is controlled by `RAN_*` env vars (see the table in [Setup
 
 - **`RAN_NUM_ROWS`** — how many submissions to emit.
 - **`RAN_MATCH_RATIO`** — split between `dim_individual`-sourced rows (matchable downstream) and pure-Faker non-matches.
-- **`RAN_DUPLICATE_RATIO`** — fraction of rows participating in intentional duplicate scenarios (declarant→member or member→member across submissions).
-- **`RAN_DOC_OVERLAP_RATIO`** — how often `Identification Document` and `Personal Document` columns share the same underlying number (a real-world data-quality issue).
+- **`RAN_DUPLICATE_RATIO`** — fraction of rows participating in intentional duplicate scenarios (declarant→member **or** member→member across submissions).
+- **`RAN_DOC_OVERLAP_RATIO`** — how often `Identification Document` and `Personal Document` columns share the same underlying number.
 - **`GPO_OUTPUT_PATH`** — output Excel file path.
 - **`RAN_RANDOM_SEED`** — fix this for reproducible runs.
 
@@ -222,9 +222,9 @@ All Stage 2 behaviour is controlled by `RAN_*` env vars (see the table in [Setup
 ```
 Registration Group Registration → Individual Registration
                                 → Certificate Issuance
-                                → Admissibility Assessment → Interview / Decision
-                                    → Eligibility Assessment → Recommendation → Review
-                                                                                       → Appeal Recommendation → Appeal Decision
+                                → Admissibility Assessment → Interview → Decision
+                                                                                → Eligibility Assessment → Recommendation → Review
+                                                                                                                                → Appeal Recommendation → Appeal Decision
 ```
 
 To not overcomplicate the dataset, all dates respect this causal ordering. Each record is created **after** its parent. The two-phase structure (admissibility → eligibility) follows established practice: admissibility determines whether a claim should be examined in substance; eligibility is that substantive examination. See [UNHCR & IPU, *A Guide to International Refugee Protection and Building State Asylum Systems* (2011), §7.6](https://www.unhcr.org/sites/default/files/legacy-pdf/3d4aba564.pdf) for more information.
@@ -320,12 +320,14 @@ All distributions can be tuned in `core/config.py`.
 
 ## Design Notes
 
-- **Two-stage pipeline** — Stage 1 owns the operational truth (Postgres OLTP); Stage 2 owns the data-quality simulation (Excel origin). The unidirectional dependency keeps each stage's responsibilities clear.
+- **Two-stage pipeline** — As mentioned before, stage 1 owns the operational truth (Postgres OLTP); Stage 2 owns the data-quality simulation (Excel origin) that can be used to clean data that could happen in humanitarian settings. The unidirectional dependency keeps each stage's responsibilities clear.
 - **SCD Type 1 for `dim_individual`** — `dim_individual` always reflects current state; historical snapshots are not tracked.
-- **One admissibility assessment per individual** — the process assumes a single assessment per individual as the operative record.
+- **Only one child case per parent** — Even though an individual could have more than one Admissibility or Eligibility case in a real operational context, this pipeline generates only one per parent record by design, which simplifies the dataset overall.
 - **Causal date ordering** — every fact generator enforces that its timestamps fall strictly after the parent record's timestamp, preventing impossible timelines in analysis.
 - **`ON CONFLICT DO NOTHING`** — all stage-1 inserts are idempotent; re-running a generator adds only new records without duplicates.
 - **CSV fallback in Stage 2** — `python -m gpo_synthetic --csv …` lets you generate the origin Excel without spinning up Postgres, useful for portable demos and CI.
+- **Sparse user attribution** — created_by is left NULL ~5% of the time across fact tables, simulating missing operator attribution in legacy records.
+- **Decoupled process chains** — admissibility, eligibility, and appeals are each sampled independently from the individual (or parent) pool. An individual may have an eligibility case without an admissibility record, an appeal attached to a favourable recommendation, etc. This is deliberate: real operational data is rarely logically consistent across systems, and the dataset is meant to exercise cleaning/reconciliation logic, not represent an idealised workflow.
 
 ---
 
@@ -351,11 +353,11 @@ This dataset is entirely synthetic. The following measures were taken to ensure 
 
 All personally identifiable information is generated by the [Faker](https://faker.readthedocs.io/) library at runtime:
 
-- **Full names** (`dim_individual.full_name`, `dim_user.username`, all Stage 2 names) are random English-locale names produced by `Faker('en_US')`. They bear no relation to any actual refugee, asylum seeker, or case worker.
+- **Full names** (`dim_individual.full_name`, `dim_user.username`, all Stage 2 names) are random English-locale names produced by `Faker('en_US')`. They bear no relation to any actual refugee, asylum seeker, case worker or person in general.
 - **Dates of birth** are computed from randomized age buckets relative to a fixed reference date; no real birth dates are used.
 - **Case IDs** (`IND-`, `ADM-`, `ELG-`) are sequential counters that start at 1 with each fresh generation. They are not derived from, nor do they resemble, any real case or file number.
 - **User IDs** are random UUIDs; none correspond to real staff identifiers from any organization.
-- **Stage 2 identification documents** begin with synthetic 2-character prefixes (e.g. `9X`, `P6`, `Z3`) that do not exist in real LATAM ID systems; passports use `ZZ`/`XX` prefixes. See [`gpo_synthetic/README.md`](gpo_synthetic/README.md) for full details on synthetic-ID safety.
+- **Stage 2 identification documents** begin with synthetic 2-character prefixes (e.g. `9X`, `P6`, `Z3`) that do not correspond to any real-world ID system; passports use ZZ/XX prefixes. 
 
 ### Source system thoroughly anonymized
 
